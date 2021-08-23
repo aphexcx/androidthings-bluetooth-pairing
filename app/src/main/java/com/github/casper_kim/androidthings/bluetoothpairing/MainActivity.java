@@ -1,9 +1,10 @@
 package com.github.casper_kim.androidthings.bluetoothpairing;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHidDevice;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -13,7 +14,7 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 
-import com.google.android.things.bluetooth.BluetoothProfile;
+import com.google.android.things.bluetooth.BluetoothConfigManager;
 import com.google.android.things.bluetooth.BluetoothProfileManager;
 
 import java.lang.reflect.Method;
@@ -31,15 +32,19 @@ public class MainActivity extends Activity {
 
     static {
         //todo: add target device name after getting device name with startDiscovery
-        TARGET_DEVICE_NAME.add("BT-S15");
+        TARGET_DEVICE_NAME.add("DIERYA      ");
     }
 
-    private List<BluetoothDevice> mTargetDevices = new ArrayList<>();
+    private final List<BluetoothDevice> mTargetDevices = new ArrayList<>();
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        BluetoothConfigManager manager = BluetoothConfigManager.getInstance();
+// Report full input/output capability for this device
+        manager.setIoCapability(BluetoothConfigManager.IO_CAPABILITY_KBDISP);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
@@ -47,7 +52,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if(!mBluetoothAdapter.isEnabled()){
+        if (!mBluetoothAdapter.isEnabled()) {
             Log.d(TAG, "BT enable.");
             mBluetoothAdapter.enable();
         }
@@ -75,22 +80,22 @@ public class MainActivity extends Activity {
     }
 
     private void checkBluetoothProfile() {
-        BluetoothProfileManager bluetoothProfileManager = new BluetoothProfileManager();
+        BluetoothProfileManager bluetoothProfileManager = BluetoothProfileManager.getInstance();
         List<Integer> enabledProfiles = bluetoothProfileManager.getEnabledProfiles();
         boolean isA2DPEnabled = false;
         for (int profile : enabledProfiles) {
             Log.d(TAG, "BT Profile enabled:" + profile);
-            if (profile == BluetoothProfile.A2DP) {
+            if (profile == android.bluetooth.BluetoothProfile.HID_DEVICE) {
                 isA2DPEnabled = true;
             }
         }
 
         if (!isA2DPEnabled) {
-            Log.d(TAG, "Enabling A2dp mode.");
-            List toEnable = Arrays.asList(BluetoothProfile.A2DP);
-            bluetoothProfileManager.enableAndDisableProfiles(toEnable, null);
+            Log.d(TAG, "Enabling HID_device mode.");
+            List toEnable = Arrays.asList(BluetoothProfile.HID_DEVICE);
+//            bluetoothProfileManager.enableAndDisableProfiles(toEnable, Arrays.asList(4));
         } else {
-            Log.d(TAG, "A2dp mode already enabled.");
+            Log.d(TAG, "HID_device mode already enabled.");
         }
     }
 
@@ -202,12 +207,12 @@ public class MainActivity extends Activity {
             @Override
             public void onServiceConnected(int profile, android.bluetooth.BluetoothProfile proxy) {
                 Log.d(TAG, "profile proxy connected..");
-                BluetoothA2dp a2dp = (BluetoothA2dp) proxy;
+                BluetoothHidDevice hid_device = (BluetoothHidDevice) proxy;
 
                 try {
-                    Class clazz = Class.forName("android.bluetooth.BluetoothA2dp");
+                    Class clazz = Class.forName("android.bluetooth.BluetoothHidDevice");
                     Method method = clazz.getMethod("connect", BluetoothDevice.class);
-                    boolean result = (boolean) method.invoke(a2dp, device);
+                    boolean result = (boolean) method.invoke(hid_device, device);
                     Log.d(TAG, "connect result:" + result);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -218,7 +223,7 @@ public class MainActivity extends Activity {
             public void onServiceDisconnected(int profile) {
                 Log.d(TAG, "profile proxy disconnected..");
             }
-        }, BluetoothProfile.A2DP);
+        }, android.bluetooth.BluetoothProfile.HID_DEVICE);
     }
 
     private void unpairDevice(final BluetoothDevice device) {
@@ -227,21 +232,21 @@ public class MainActivity extends Activity {
             @Override
             public void onServiceConnected(int profile, android.bluetooth.BluetoothProfile proxy) {
                 Log.d(TAG, "profile proxy connected..");
-                BluetoothA2dp a2dp = (BluetoothA2dp) proxy;
+                BluetoothHidDevice hid_device = (BluetoothHidDevice) proxy;
 
                 try {
-                    Class clazz = Class.forName("android.bluetooth.BluetoothA2dp");
+                    Class clazz = Class.forName("android.bluetooth.BluetoothHidDevice");
                     Method method = clazz.getMethod("setPriority", BluetoothDevice.class, int.class);
-                    boolean result = (boolean) method.invoke(a2dp, device, 0);
+                    boolean result = (boolean) method.invoke(hid_device, device, 0);
                     Log.d(TAG, "setPriority, result: " + result);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
 
                 try {
-                    Class clazz = Class.forName("android.bluetooth.BluetoothA2dp");
+                    Class clazz = Class.forName("android.bluetooth.BluetoothHidDevice");
                     Method method = clazz.getMethod("disconnect", BluetoothDevice.class);
-                    boolean result = (boolean) method.invoke(a2dp, device);
+                    boolean result = (boolean) method.invoke(hid_device, device);
                     Log.d(TAG, "disconnect, result: " + result);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -252,7 +257,7 @@ public class MainActivity extends Activity {
             public void onServiceDisconnected(int profile) {
                 Log.d(TAG, "profile proxy disconnected..");
             }
-        }, BluetoothProfile.A2DP);
+        }, android.bluetooth.BluetoothProfile.HID_DEVICE);
 
         SystemClock.sleep(3000);
 
